@@ -39,6 +39,10 @@
 	</dict>
 	<key>CFBundleIdentifier</key>
 	<string>com.chenwei1145.jailbreakdetector</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>sileo</string><string>zbra</string><string>installer</string><string>filza</string><string>cydia</string>
+	</array>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>

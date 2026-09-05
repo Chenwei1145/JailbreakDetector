@@ -40,7 +40,10 @@ final class Detector: ObservableObject {
         result.append(checkLoadedImages(weight: 10))
         result.append(checkEnvironment(weight: 10))
         result.append(checkKnownJailbreakApps(weight: 10))
-        result.append(checkJailbreakURLSchemes(weight: 5))
+        result.append(checkJailbreakURLSchemes(weight: 10))
+        result.append(checkSubstrateArtifacts(weight: 15))
+        result.append(checkSuspiciousMounts(weight: 10))
+        result.append(checkWritableSystemLocations(weight: 10))
         checks = result
         lastScan = Date()
     }
@@ -73,13 +76,13 @@ final class Detector: ObservableObject {
     }
 
     private func checkKnownJailbreakApps(weight: Int) -> Detection {
-        let paths = ["/Applications/Sileo.app", "/Applications/Zebra.app", "/Applications/Installer.app", "/var/jb/Applications/Sileo.app", "/var/jb/Applications/Zebra.app"]
+        let paths = ["/Applications/Sileo.app", "/Applications/Zebra.app", "/Applications/Installer.app", "/Applications/Filza.app", "/var/jb/Applications/Sileo.app", "/var/jb/Applications/Zebra.app", "/var/jb/Applications/Filza.app"]
         let hit = paths.first { FileManager.default.fileExists(atPath: $0) }
         return Detection(title: "常见越狱 App 路径", detail: hit ?? "未找到 Sileo/Zebra 等路径", detected: hit != nil, weight: weight)
     }
 
     private func checkJailbreakURLSchemes(weight: Int) -> Detection {
-        let schemes = ["sileo://", "zbra://", "installer://"]
+        let schemes = ["sileo://", "zbra://", "installer://", "filza://", "cydia://"]
         let hit = schemes.first { UIApplication.shared.canOpenURL(URL(string: $0)!) }
         return Detection(title: "越狱 App URL Scheme", detail: hit ?? "未发现可打开的越狱 URL Scheme", detected: hit != nil, weight: weight)
     }
@@ -132,6 +135,31 @@ struct ContentView: View {
         formatter.dateStyle = .none
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    private func checkSubstrateArtifacts(weight: Int) -> Detection {
+        let paths = ["/Library/MobileSubstrate/MobileSubstrate.dylib", "/Library/MobileSubstrate/DynamicLibraries", "/usr/lib/TweakInject", "/usr/lib/substitute-loader.dylib", "/usr/lib/libhooker.dylib", "/var/jb/usr/lib/TweakInject", "/var/jb/usr/lib/ellekit"]
+        let hit = paths.first { FileManager.default.fileExists(atPath: $0) }
+        return Detection(title: "Substrate / 注入文件痕迹", detail: hit ?? "未发现常见注入目录或动态库", detected: hit != nil, weight: weight)
+    }
+
+    private func checkSuspiciousMounts(weight: Int) -> Detection {
+        var info = statfs()
+        for path in ["/var/jb", "/private/preboot", "/var/containers/Bundle/Application"] where statfs(path, &info) == 0 {
+            let mount = withUnsafePointer(to: &info.f_mntfromname) { ptr in
+                ptr.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: info.f_mntfromname)) { String(cString: $0) }
+            }.lowercased()
+            if mount.contains("jbroot") || mount.contains("rootless") || mount.contains("roothide") {
+                return Detection(title: "文件系统挂载痕迹", detail: mount, detected: true, weight: weight)
+            }
+        }
+        return Detection(title: "文件系统挂载痕迹", detail: "未发现 jbroot/rootless 挂载名称", detected: false, weight: weight)
+    }
+
+    private func checkWritableSystemLocations(weight: Int) -> Detection {
+        let paths = ["/private", "/var/root", "/usr/lib", "/var/jb"]
+        let hit = paths.first { FileManager.default.isWritableFile(atPath: $0) }
+        return Detection(title: "系统目录写入权限", detail: hit.map { "普通 App 可写入：\($0)" } ?? "未发现异常写入权限", detected: hit != nil, weight: weight)
     }
 }
 
