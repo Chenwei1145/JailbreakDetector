@@ -95,7 +95,7 @@ struct ContentView: View {
                     VStack(spacing: 8) {
                         Text("RootHide Detector").font(.title2.bold())
                         Text(detector.verdict).font(.headline)
-                        Text("检测评分 \(detector.score)/100").foregroundStyle(detector.score >= 30 ? .orange : .secondary)
+                        Text("检测评分 \(detector.score)/100").foregroundColor(detector.score >= 30 ? .orange : .secondary)
                         ProgressView(value: Double(detector.score), total: 100)
                     }.frame(maxWidth: .infinity).padding(.vertical, 8)
                 }
@@ -103,10 +103,10 @@ struct ContentView: View {
                     ForEach(detector.checks) { item in
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: item.detected ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                                .foregroundStyle(item.detected ? .orange : .green)
+                                .foregroundColor(item.detected ? .orange : .green)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(item.title).font(.body.bold())
-                                Text(item.detail).font(.caption).foregroundStyle(.secondary)
+                                Text(item.detail).font(.caption).foregroundColor(.secondary)
                             }
                             Spacer()
                         }
@@ -114,17 +114,24 @@ struct ContentView: View {
                 }
                 Section {
                     Button { detector.scan() } label: { Label("重新扫描", systemImage: "arrow.clockwise") }
-                    Text("上次扫描：\(detector.lastScan.formatted(date: .omitted, time: .shortened))")
-                        .font(.caption).foregroundStyle(.secondary)
+                    Text("上次扫描：\(Self.timeString(detector.lastScan))")
+                        .font(.caption).foregroundColor(.secondary)
                 }
                 Section("说明") {
                     Text("RootHide 的设计目标就是隐藏越狱痕迹。普通 App 受沙盒限制时，检测结果可能为阴性；本工具只能评估当前进程可见的迹象，不能证明设备绝对未越狱。")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundColor(.secondary)
                 }
             }
             .navigationTitle("越狱检测")
         }
-        .task { detector.scan() }
+        .onAppear { detector.scan() }
+    }
+
+    private static func timeString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 
