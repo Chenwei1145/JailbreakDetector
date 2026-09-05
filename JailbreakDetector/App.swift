@@ -48,6 +48,8 @@ final class Detector: ObservableObject {
         result.append(checkSymlinkExposure(weight: 10))
         result.append(checkHookSymbols(weight: 10))
         result.append(checkProcessIdentity(weight: 5))
+        let suite = SecuritySuiteAdapter.scan()
+        result.append(Detection(title: "IOSSecuritySuite 综合检测", detail: suite.detail, detected: suite.detected, weight: 25))
         checks = result
         lastScan = Date()
     }

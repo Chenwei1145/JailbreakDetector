@@ -20,9 +20,27 @@ jobs:
           mkdir -p "$HOME/theos/sdks"
           ln -s "$(xcrun --sdk iphoneos --show-sdk-path)" "$HOME/theos/sdks/iPhoneOS.sdk"
 
+      - name: Build IOSSecuritySuite framework
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/IOSSecuritySuite /tmp/ios-security-derived
+          git clone --depth 1 https://github.com/securing/IOSSecuritySuite.git /tmp/IOSSecuritySuite
+          cd /tmp/IOSSecuritySuite
+          PROJECT=$(find . -maxdepth 2 -name '*.xcodeproj' | head -n 1)
+          test -n "$PROJECT"
+          SCHEME=$(xcodebuild -list -project "$PROJECT" | awk '/Schemes:/{f=1;next} f && NF{print $1; exit}')
+          test -n "$SCHEME"
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -sdk iphoneos -configuration Release \
+            -derivedDataPath /tmp/ios-security-derived BUILD_LIBRARY_FOR_DISTRIBUTION=YES SKIP_INSTALL=NO
+          FRAMEWORK=$(find /tmp/ios-security-derived -type d -name 'IOSSecuritySuite.framework' | head -n 1)
+          test -n "$FRAMEWORK"
+          mkdir -p "$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks"
+          cp -R "$FRAMEWORK" "$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks/"
+
       - name: Build IPA and DEB
         run: |
           export THEOS="$HOME/theos"
+          export ADDITIONAL_SWIFT_FLAGS="-D IOS_SECURITY_SUITE_AVAILABLE"
           chmod +x ./build_jailbreak_detector.sh
           set -o pipefail
           ./build_jailbreak_detector.sh 2>&1 | tee build.log
