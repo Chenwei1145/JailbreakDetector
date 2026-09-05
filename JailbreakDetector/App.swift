@@ -96,8 +96,10 @@ final class Detector: ObservableObject {
     private func checkSuspiciousMounts(weight: Int) -> Detection {
         var info = statfs()
         for path in ["/var/jb", "/private/preboot", "/var/containers/Bundle/Application"] where statfs(path, &info) == 0 {
-            let mount = withUnsafePointer(to: &info.f_mntfromname) { ptr in
-                ptr.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: info.f_mntfromname)) { String(cString: $0) }
+            var mountBytes = info.f_mntfromname
+            let mountCapacity = MemoryLayout.size(ofValue: mountBytes)
+            let mount = withUnsafePointer(to: &mountBytes) { ptr in
+                ptr.withMemoryRebound(to: CChar.self, capacity: mountCapacity) { String(cString: $0) }
             }.lowercased()
             if mount.contains("jbroot") || mount.contains("rootless") || mount.contains("roothide") {
                 return Detection(title: "文件系统挂载痕迹", detail: mount, detected: true, weight: weight)
