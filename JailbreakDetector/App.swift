@@ -86,6 +86,31 @@ final class Detector: ObservableObject {
         let hit = schemes.first { UIApplication.shared.canOpenURL(URL(string: $0)!) }
         return Detection(title: "越狱 App URL Scheme", detail: hit ?? "未发现可打开的越狱 URL Scheme", detected: hit != nil, weight: weight)
     }
+
+    private func checkSubstrateArtifacts(weight: Int) -> Detection {
+        let paths = ["/Library/MobileSubstrate/MobileSubstrate.dylib", "/Library/MobileSubstrate/DynamicLibraries", "/usr/lib/TweakInject", "/usr/lib/substitute-loader.dylib", "/usr/lib/libhooker.dylib", "/var/jb/usr/lib/TweakInject", "/var/jb/usr/lib/ellekit"]
+        let hit = paths.first { FileManager.default.fileExists(atPath: $0) }
+        return Detection(title: "Substrate / 注入文件痕迹", detail: hit ?? "未发现常见注入目录或动态库", detected: hit != nil, weight: weight)
+    }
+
+    private func checkSuspiciousMounts(weight: Int) -> Detection {
+        var info = statfs()
+        for path in ["/var/jb", "/private/preboot", "/var/containers/Bundle/Application"] where statfs(path, &info) == 0 {
+            let mount = withUnsafePointer(to: &info.f_mntfromname) { ptr in
+                ptr.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: info.f_mntfromname)) { String(cString: $0) }
+            }.lowercased()
+            if mount.contains("jbroot") || mount.contains("rootless") || mount.contains("roothide") {
+                return Detection(title: "文件系统挂载痕迹", detail: mount, detected: true, weight: weight)
+            }
+        }
+        return Detection(title: "文件系统挂载痕迹", detail: "未发现 jbroot/rootless 挂载名称", detected: false, weight: weight)
+    }
+
+    private func checkWritableSystemLocations(weight: Int) -> Detection {
+        let paths = ["/private", "/var/root", "/usr/lib", "/var/jb"]
+        let hit = paths.first { FileManager.default.isWritableFile(atPath: $0) }
+        return Detection(title: "系统目录写入权限", detail: hit.map { "普通 App 可写入：\($0)" } ?? "未发现异常写入权限", detected: hit != nil, weight: weight)
+    }
 }
 
 struct ContentView: View {
@@ -137,30 +162,6 @@ struct ContentView: View {
         return formatter.string(from: date)
     }
 
-    private func checkSubstrateArtifacts(weight: Int) -> Detection {
-        let paths = ["/Library/MobileSubstrate/MobileSubstrate.dylib", "/Library/MobileSubstrate/DynamicLibraries", "/usr/lib/TweakInject", "/usr/lib/substitute-loader.dylib", "/usr/lib/libhooker.dylib", "/var/jb/usr/lib/TweakInject", "/var/jb/usr/lib/ellekit"]
-        let hit = paths.first { FileManager.default.fileExists(atPath: $0) }
-        return Detection(title: "Substrate / 注入文件痕迹", detail: hit ?? "未发现常见注入目录或动态库", detected: hit != nil, weight: weight)
-    }
-
-    private func checkSuspiciousMounts(weight: Int) -> Detection {
-        var info = statfs()
-        for path in ["/var/jb", "/private/preboot", "/var/containers/Bundle/Application"] where statfs(path, &info) == 0 {
-            let mount = withUnsafePointer(to: &info.f_mntfromname) { ptr in
-                ptr.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: info.f_mntfromname)) { String(cString: $0) }
-            }.lowercased()
-            if mount.contains("jbroot") || mount.contains("rootless") || mount.contains("roothide") {
-                return Detection(title: "文件系统挂载痕迹", detail: mount, detected: true, weight: weight)
-            }
-        }
-        return Detection(title: "文件系统挂载痕迹", detail: "未发现 jbroot/rootless 挂载名称", detected: false, weight: weight)
-    }
-
-    private func checkWritableSystemLocations(weight: Int) -> Detection {
-        let paths = ["/private", "/var/root", "/usr/lib", "/var/jb"]
-        let hit = paths.first { FileManager.default.isWritableFile(atPath: $0) }
-        return Detection(title: "系统目录写入权限", detail: hit.map { "普通 App 可写入：\($0)" } ?? "未发现异常写入权限", detected: hit != nil, weight: weight)
-    }
 }
 
 @main
