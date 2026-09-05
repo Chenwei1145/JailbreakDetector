@@ -3,3 +3,4 @@ JailbreakDetector/packages/
 JailbreakDetector/output/
 .theos/
 packages/
+Resources/*.png

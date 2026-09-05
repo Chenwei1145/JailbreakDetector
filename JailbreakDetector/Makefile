@@ -9,6 +9,7 @@ include $(THEOS)/makefiles/common.mk
 APPLICATION_NAME = JailbreakDetector
 
 JailbreakDetector_FILES = App.swift
+JailbreakDetector_RESOURCE_DIRS = ../Resources
 JailbreakDetector_FRAMEWORKS = UIKit SwiftUI Foundation
 JailbreakDetector_CODESIGN_FLAGS = -Sentitlements.plist
 JailbreakDetector_SWIFT_VERSION = 5
