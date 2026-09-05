@@ -11,7 +11,9 @@ APPLICATION_NAME = JailbreakDetector
 JailbreakDetector_FILES = App.swift
 JailbreakDetector_RESOURCE_DIRS = Resources
 JailbreakDetector_FRAMEWORKS = UIKit SwiftUI Foundation
-JailbreakDetector_CODESIGN_FLAGS = --entitlements entitlements.plist
+# Let Theos invoke ldid's default ad-hoc signer.  The bundled entitlements
+# file is intentionally empty; passing GNU-style --entitlements to ldid is
+# invalid (ldid accepts -S[entitlements.xml] instead).
 JailbreakDetector_SWIFT_VERSION = 5
 
 include $(THEOS_MAKE_PATH)/application.mk
