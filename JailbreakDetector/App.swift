@@ -44,6 +44,10 @@ final class Detector: ObservableObject {
         result.append(checkSubstrateArtifacts(weight: 15))
         result.append(checkSuspiciousMounts(weight: 10))
         result.append(checkWritableSystemLocations(weight: 10))
+        result.append(checkLegacyArtifacts(weight: 10))
+        result.append(checkSymlinkExposure(weight: 10))
+        result.append(checkHookSymbols(weight: 10))
+        result.append(checkProcessIdentity(weight: 5))
         checks = result
         lastScan = Date()
     }
@@ -112,6 +116,40 @@ final class Detector: ObservableObject {
         let paths = ["/private", "/var/root", "/usr/lib", "/var/jb"]
         let hit = paths.first { FileManager.default.isWritableFile(atPath: $0) }
         return Detection(title: "系统目录写入权限", detail: hit.map { "普通 App 可写入：\($0)" } ?? "未发现异常写入权限", detected: hit != nil, weight: weight)
+    }
+
+    // Checks used by common libraries such as IOSSecuritySuite/DTTJailbreakDetection.
+    private func checkLegacyArtifacts(weight: Int) -> Detection {
+        let paths = ["/Applications/Cydia.app", "/Library/MobileSubstrate", "/usr/sbin/sshd", "/etc/apt", "/var/lib/dpkg", "/private/var/stash", "/private/var/lib/apt"]
+        let hit = paths.first { FileManager.default.fileExists(atPath: $0) }
+        return Detection(title: "传统越狱文件检测", detail: hit ?? "未发现传统 Cydia/apt/SSH 路径", detected: hit != nil, weight: weight)
+    }
+
+    private func checkSymlinkExposure(weight: Int) -> Detection {
+        let paths = ["/var/jb", "/usr/lib/TweakInject", "/Library/MobileSubstrate"]
+        for path in paths {
+            if let destination = try? FileManager.default.destinationOfSymbolicLink(atPath: path), !destination.isEmpty {
+                return Detection(title: "越狱符号链接检测", detail: "\(path) → \(destination)", detected: true, weight: weight)
+            }
+        }
+        return Detection(title: "越狱符号链接检测", detail: "未发现可读取的越狱符号链接", detected: false, weight: weight)
+    }
+
+    private func checkHookSymbols(weight: Int) -> Detection {
+        let symbols = ["MSHookFunction", "MSHookMessageEx", "fishhook_rebind_symbols", "substrate_initialize", "ellekit_init"]
+        let hit = symbols.first { symbol in symbol.withCString { dlsym(RTLD_DEFAULT, $0) != nil } }
+        return Detection(title: "Hook 框架符号检测", detail: hit ?? "未解析到常见 Hook 符号", detected: hit != nil, weight: weight)
+    }
+
+    private func checkProcessIdentity(weight: Int) -> Detection {
+        var process = utsname()
+        uname(&process)
+        var machineBytes = process.machine
+        let machine = withUnsafePointer(to: &machineBytes) { pointer in
+            pointer.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: machineBytes)) { String(cString: $0) }
+        }
+        let parent = getppid()
+        return Detection(title: "进程/系统环境信息", detail: "设备 \(machine)，父进程 PID \(parent)", detected: parent != 1, weight: weight)
     }
 }
 
