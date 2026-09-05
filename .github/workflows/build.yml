@@ -1,0 +1,33 @@
+name: Build Jailbreak Detector
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ldid
+        run: brew install ldid
+
+      - name: Install Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git "$HOME/theos"
+          mkdir -p "$HOME/theos/sdks"
+          ln -s "$(xcrun --sdk iphoneos --show-sdk-path)" "$HOME/theos/sdks/iPhoneOS.sdk"
+
+      - name: Build IPA and DEB
+        run: |
+          export THEOS="$HOME/theos"
+          chmod +x ./build_jailbreak_detector.sh
+          ./build_jailbreak_detector.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: JailbreakDetector
+          path: JailbreakDetector/output/*
