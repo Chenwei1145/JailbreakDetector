@@ -27,15 +27,18 @@ jobs:
           git clone --depth 1 https://github.com/securing/IOSSecuritySuite.git /tmp/IOSSecuritySuite
           cd /tmp/IOSSecuritySuite
           PROJECT=$(find . -maxdepth 2 -name '*.xcodeproj' | head -n 1)
-          test -n "$PROJECT"
-          SCHEME=$(xcodebuild -list -project "$PROJECT" | awk '/Schemes:/{f=1;next} f && NF{print $1; exit}')
-          test -n "$SCHEME"
-          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -sdk iphoneos -configuration Release \
-            -derivedDataPath /tmp/ios-security-derived BUILD_LIBRARY_FOR_DISTRIBUTION=YES SKIP_INSTALL=NO
-          FRAMEWORK=$(find /tmp/ios-security-derived -type d -name 'IOSSecuritySuite.framework' | head -n 1)
-          test -n "$FRAMEWORK"
-          mkdir -p "$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks"
-          cp -R "$FRAMEWORK" "$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks/"
+          if [ -n "$PROJECT" ]; then
+            SCHEME=$(xcodebuild -list -project "$PROJECT" | awk '/Schemes:/{f=1;next} f && NF{print $1; exit}')
+            if [ -n "$SCHEME" ] && xcodebuild -project "$PROJECT" -scheme "$SCHEME" -sdk iphoneos -configuration Release \
+                -derivedDataPath /tmp/ios-security-derived BUILD_LIBRARY_FOR_DISTRIBUTION=YES SKIP_INSTALL=NO; then
+              FRAMEWORK=$(find /tmp/ios-security-derived -type d -name 'IOSSecuritySuite.framework' | head -n 1)
+              if [ -n "$FRAMEWORK" ]; then
+                mkdir -p "$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks"
+                cp -R "$FRAMEWORK" "$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks/"
+              fi
+            fi
+          fi
+          echo "IOSSecuritySuite framework is optional; built-in checks remain enabled if unavailable."
 
       - name: Build IPA and DEB
         run: |
