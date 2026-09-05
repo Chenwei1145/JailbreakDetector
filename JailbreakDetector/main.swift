@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import Foundation
 import Darwin
+import MachO
 
 struct Detection: Identifiable {
     let id = UUID()
@@ -36,8 +37,10 @@ final class Detector: ObservableObject {
         result.append(checkPath("RootHide 配置/版本文件", paths: ["/var/jb/basebin/.version", "/var/jb/.jbroot"], weight: 15))
         result.append(checkPath("RootHide 注入组件", paths: ["/var/jb/usr/lib/TweakInject/ElleKit.dylib", "/var/jb/usr/lib/libjailbreak.dylib"], weight: 20))
         result.append(checkLoadedImage(weight: 15))
+        result.append(checkLoadedImages(weight: 10))
         result.append(checkEnvironment(weight: 10))
-        result.append(checkWritableJailbreakPath(weight: 10))
+        result.append(checkKnownJailbreakApps(weight: 10))
+        result.append(checkJailbreakURLSchemes(weight: 5))
         checks = result
         lastScan = Date()
     }
@@ -49,23 +52,36 @@ final class Detector: ObservableObject {
 
     private func checkLoadedImage(weight: Int) -> Detection {
         let names = ["/usr/lib/libjailbreak.dylib", "/var/jb/usr/lib/libjailbreak.dylib", "/var/jb/usr/lib/TweakInject/ElleKit.dylib"]
-        let hit = names.first { dlopen($0, RTLD_NOLOAD | RTLD_LAZY) != nil }
+        let hit = names.first { path in path.withCString { dlopen($0, RTLD_NOLOAD | RTLD_LAZY) != nil } }
         return Detection(title: "当前进程已加载 RootHide 库", detail: hit ?? "未检测到已加载库", detected: hit != nil, weight: weight)
+    }
+
+    private func checkLoadedImages(weight: Int) -> Detection {
+        let needles = ["ellekit", "tweakinject", "libjailbreak", "substitute", "substrate", "libhooker"]
+        var hit: String?
+        for index in 0..<_dyld_image_count() {
+            guard let pointer = _dyld_get_image_name(index), let name = String(validatingUTF8: pointer)?.lowercased() else { continue }
+            if let needle = needles.first(where: { name.contains($0) }) { hit = "\(needle): \(name)"; break }
+        }
+        return Detection(title: "动态加载镜像扫描", detail: hit ?? "未发现已加载注入组件", detected: hit != nil, weight: weight)
     }
 
     private func checkEnvironment(weight: Int) -> Detection {
         let keys = ["DYLD_INSERT_LIBRARIES", "_MSSafeMode", "ROOT_HIDE", "JBROOT"]
-        let hit = keys.first { getenv($0) != nil }
+        let hit = keys.first { key in key.withCString { getenv($0) != nil } }
         return Detection(title: "越狱相关环境变量", detail: hit ?? "未发现相关变量", detected: hit != nil, weight: weight)
     }
 
-    private func checkWritableJailbreakPath(weight: Int) -> Detection {
-        // 仅检查属性，不创建、修改或删除任何文件。
-        let path = "/var/jb"
-        var isDirectory: ObjCBool = false
-        let exists = FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
-        let readable = exists && FileManager.default.isReadableFile(atPath: path)
-        return Detection(title: "RootHide 路径可访问性", detail: readable ? "可读取 \(path)" : "路径不可读取或不存在", detected: readable, weight: weight)
+    private func checkKnownJailbreakApps(weight: Int) -> Detection {
+        let paths = ["/Applications/Sileo.app", "/Applications/Zebra.app", "/Applications/Installer.app", "/var/jb/Applications/Sileo.app", "/var/jb/Applications/Zebra.app"]
+        let hit = paths.first { FileManager.default.fileExists(atPath: $0) }
+        return Detection(title: "常见越狱 App 路径", detail: hit ?? "未找到 Sileo/Zebra 等路径", detected: hit != nil, weight: weight)
+    }
+
+    private func checkJailbreakURLSchemes(weight: Int) -> Detection {
+        let schemes = ["sileo://", "zbra://", "installer://"]
+        let hit = schemes.first { UIApplication.shared.canOpenURL(URL(string: $0)!) }
+        return Detection(title: "越狱 App URL Scheme", detail: hit ?? "未发现可打开的越狱 URL Scheme", detected: hit != nil, weight: weight)
     }
 }
 
@@ -79,7 +95,7 @@ struct ContentView: View {
                     VStack(spacing: 8) {
                         Text("RootHide Detector").font(.title2.bold())
                         Text(detector.verdict).font(.headline)
-                        Text("检测评分 (detector.score)/100").foregroundStyle(detector.score >= 30 ? .orange : .secondary)
+                        Text("检测评分 \(detector.score)/100").foregroundStyle(detector.score >= 30 ? .orange : .secondary)
                         ProgressView(value: Double(detector.score), total: 100)
                     }.frame(maxWidth: .infinity).padding(.vertical, 8)
                 }
