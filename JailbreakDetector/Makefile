@@ -15,6 +15,7 @@ JailbreakDetector_SWIFTFLAGS += $(ADDITIONAL_SWIFT_FLAGS)
 
 ifneq ($(wildcard Resources/Frameworks/IOSSecuritySuite.framework),)
 JailbreakDetector_LDFLAGS += -F$(THEOS_PROJECT_DIR)/Resources/Frameworks -framework IOSSecuritySuite
+JailbreakDetector_SWIFTFLAGS += -F$(THEOS_PROJECT_DIR)/Resources/Frameworks
 endif
 # Let Theos invoke ldid's default ad-hoc signer.  The bundled entitlements
 # file is intentionally empty; passing GNU-style --entitlements to ldid is

@@ -25,20 +25,22 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/IOSSecuritySuite /tmp/ios-security-derived
           git clone --depth 1 https://github.com/securing/IOSSecuritySuite.git /tmp/IOSSecuritySuite
-          cd /tmp/IOSSecuritySuite
-          PROJECT=$(find . -maxdepth 2 -name '*.xcodeproj' | head -n 1)
-          if [ -n "$PROJECT" ]; then
-            SCHEME=$(xcodebuild -list -project "$PROJECT" | awk '/Schemes:/{f=1;next} f && NF{print $1; exit}')
-            if [ -n "$SCHEME" ] && xcodebuild -project "$PROJECT" -scheme "$SCHEME" -sdk iphoneos -configuration Release \
-                -derivedDataPath /tmp/ios-security-derived BUILD_LIBRARY_FOR_DISTRIBUTION=YES SKIP_INSTALL=NO; then
-              FRAMEWORK=$(find /tmp/ios-security-derived -type d -name 'IOSSecuritySuite.framework' | head -n 1)
-              if [ -n "$FRAMEWORK" ]; then
-                mkdir -p "$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks"
-                cp -R "$FRAMEWORK" "$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks/"
-              fi
-            fi
-          fi
-          echo "IOSSecuritySuite framework is optional; built-in checks remain enabled if unavailable."
+          xcodebuild \
+            -project /tmp/IOSSecuritySuite/IOSSecuritySuite.xcodeproj \
+            -scheme IOSSecuritySuite \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath /tmp/ios-security-derived \
+            -destination 'generic/platform=iOS' \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+            SKIP_INSTALL=NO \
+            CODE_SIGNING_ALLOWED=NO
+          FRAMEWORK=$(find /tmp/ios-security-derived/Build/Products -type d -path '*Release-iphoneos/IOSSecuritySuite.framework' | head -n 1)
+          test -n "$FRAMEWORK" || { echo "IOSSecuritySuite.framework 未生成" >&2; exit 1; }
+          mkdir -p "$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks"
+          rm -rf "$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks/IOSSecuritySuite.framework"
+          cp -R "$FRAMEWORK" "$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks/"
+          echo "已嵌入：$GITHUB_WORKSPACE/JailbreakDetector/Resources/Frameworks/IOSSecuritySuite.framework"
 
       - name: Build IPA and DEB
         run: |
