@@ -150,8 +150,9 @@ final class Detector: ObservableObject {
         var process = utsname()
         uname(&process)
         var machineBytes = process.machine
+        let machineCapacity = MemoryLayout.size(ofValue: machineBytes)
         let machine = withUnsafePointer(to: &machineBytes) { pointer in
-            pointer.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: machineBytes)) { String(cString: $0) }
+            pointer.withMemoryRebound(to: CChar.self, capacity: machineCapacity) { String(cString: $0) }
         }
         let parent = getppid()
         return Detection(title: "进程/系统环境信息", detail: "设备 \(machine)，父进程 PID \(parent)", detected: parent != 1, weight: weight)
