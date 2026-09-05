@@ -7,7 +7,7 @@ enum SecuritySuiteAdapter {
     static func scan() -> (detected: Bool, detail: String) {
 #if canImport(IOSSecuritySuite)
         let jailbroken = IOSSecuritySuite.amIJailbroken()
-        let debugged = IOSSecuritySuite.amIBeingDebugged()
+        let debugged = IOSSecuritySuite.amIDebugged()
         let emulator = IOSSecuritySuite.amIRunInEmulator()
         let reverseEngineered = IOSSecuritySuite.amIReverseEngineered()
         return (jailbroken || debugged || emulator || reverseEngineered,
