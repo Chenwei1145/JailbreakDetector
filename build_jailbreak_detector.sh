@@ -31,10 +31,27 @@ fi
 # 在 Linux 文件系统中编译，避免 /mnt/c 的权限、时间戳和 ldid 问题。
 mkdir -p "$BUILD_DIR" "$OUTPUT_DIR"
 rsync -a --delete --exclude='.theos/' --exclude='packages/' --exclude='output/' "$SOURCE_DIR/" "$BUILD_DIR/"
-make -C "$BUILD_DIR" clean package FINALPACKAGE=1
+# Build first, then embed the framework before packaging so both the IPA and
+# the resulting DEB contain IOSSecuritySuite.framework.
+make -C "$BUILD_DIR" clean all FINALPACKAGE=1
 
 APP_DIR="$BUILD_DIR/.theos/_/Applications/JailbreakDetector.app"
 [[ -d "$APP_DIR" ]] || { echo "未找到构建后的 App：$APP_DIR" >&2; exit 1; }
+
+# Theos does not consistently copy nested Frameworks directories from
+# RESOURCE_DIRS. Explicitly embed the dynamic framework in the final app.
+FRAMEWORK_SRC="$SOURCE_DIR/Resources/Frameworks/IOSSecuritySuite.framework"
+if [[ -d "$FRAMEWORK_SRC" ]]; then
+  mkdir -p "$APP_DIR/Frameworks"
+  rm -rf "$APP_DIR/Frameworks/IOSSecuritySuite.framework"
+  cp -a "$FRAMEWORK_SRC" "$APP_DIR/Frameworks/"
+  echo "已嵌入框架：$APP_DIR/Frameworks/IOSSecuritySuite.framework"
+else
+  echo "未找到 IOSSecuritySuite.framework" >&2
+  exit 1
+fi
+
+make -C "$BUILD_DIR" package FINALPACKAGE=1
 
 IPA_WORK="$BUILD_DIR/ipa-build"
 rm -rf "$IPA_WORK"
