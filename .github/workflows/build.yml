@@ -43,7 +43,6 @@ jobs:
       - name: Build IPA and DEB
         run: |
           export THEOS="$HOME/theos"
-          export ADDITIONAL_SWIFT_FLAGS="-D IOS_SECURITY_SUITE_AVAILABLE"
           chmod +x ./build_jailbreak_detector.sh
           set -o pipefail
           ./build_jailbreak_detector.sh 2>&1 | tee build.log

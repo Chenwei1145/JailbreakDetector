@@ -1,8 +1,11 @@
 import Foundation
+#if canImport(IOSSecuritySuite)
+import IOSSecuritySuite
+#endif
 
 enum SecuritySuiteAdapter {
     static func scan() -> (detected: Bool, detail: String) {
-#if IOS_SECURITY_SUITE_AVAILABLE
+#if canImport(IOSSecuritySuite)
         let jailbroken = IOSSecuritySuite.amIJailbroken()
         let debugged = IOSSecuritySuite.amIBeingDebugged()
         let emulator = IOSSecuritySuite.amIRunInEmulator()

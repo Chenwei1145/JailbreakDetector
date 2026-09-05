@@ -139,7 +139,10 @@ final class Detector: ObservableObject {
 
     private func checkHookSymbols(weight: Int) -> Detection {
         let symbols = ["MSHookFunction", "MSHookMessageEx", "fishhook_rebind_symbols", "substrate_initialize", "ellekit_init"]
-        let hit = symbols.first { symbol in symbol.withCString { dlsym(RTLD_DEFAULT, $0) != nil } }
+        // Swift/Xcode does not expose the RTLD_DEFAULT macro.  Darwin defines
+        // the default symbol handle as (void *)-2, which is accepted by dlsym.
+        let defaultHandle = UnsafeMutableRawPointer(bitPattern: -2)
+        let hit = symbols.first { symbol in symbol.withCString { dlsym(defaultHandle, $0) != nil } }
         return Detection(title: "Hook 框架符号检测", detail: hit ?? "未解析到常见 Hook 符号", detected: hit != nil, weight: weight)
     }
 
