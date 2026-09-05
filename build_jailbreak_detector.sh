@@ -35,8 +35,13 @@ rsync -a --delete --exclude='.theos/' --exclude='packages/' --exclude='output/' 
 # the resulting DEB contain IOSSecuritySuite.framework.
 make -C "$BUILD_DIR" clean all FINALPACKAGE=1
 
-APP_DIR="$BUILD_DIR/.theos/_/Applications/JailbreakDetector.app"
-[[ -d "$APP_DIR" ]] || { echo "未找到构建后的 App：$APP_DIR" >&2; exit 1; }
+# `make all` places the app in .theos/obj; the package target later stages it
+# under .theos/_/Applications. Embed before packaging, so use the build copy.
+APP_DIR="$BUILD_DIR/.theos/obj/JailbreakDetector.app"
+if [[ ! -d "$APP_DIR" ]]; then
+  APP_DIR=$(find "$BUILD_DIR/.theos" -type d -name 'JailbreakDetector.app' | head -n 1 || true)
+fi
+[[ -d "$APP_DIR" ]] || { echo "未找到构建后的 App：$BUILD_DIR/.theos" >&2; exit 1; }
 
 # Theos does not consistently copy nested Frameworks directories from
 # RESOURCE_DIRS. Explicitly embed the dynamic framework in the final app.
